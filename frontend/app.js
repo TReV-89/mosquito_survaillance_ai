@@ -170,12 +170,11 @@ async function startWave(stream) {
   const cv = document.getElementById('waveCanvas');
   if (!cv) return;
   document.getElementById('waveBox').style.display = 'block';
-  document.getElementById('waveBox').style.display = 'block';
   waveOn = true;
 
   waveCtxA = new (window.AudioContext || window.webkitAudioContext)();
   await waveCtxA.resume();
-  console.log('audio ctx:', waveCtxA.state);
+  // console.log('audio ctx:', waveCtxA.state);
 
   waveAnalyser = waveCtxA.createAnalyser();
   waveAnalyser.fftSize = 2048;
@@ -188,7 +187,7 @@ async function startWave(stream) {
   waveAnalyser.connect(mute);
   mute.connect(waveCtxA.destination);
   const trk = stream.getAudioTracks()[0];
-  console.log('track:', trk.label, '| muted:', trk.muted, '| state:', trk.readyState);
+  // console.log('track:', trk.label, '| muted:', trk.muted, '| state:', trk.readyState);
 
   const g = cv.getContext('2d');
   const td = new Uint8Array(waveAnalyser.fftSize);
@@ -203,7 +202,7 @@ async function startWave(stream) {
     for (let i = 0; i < td.length; i += 4) peak = Math.max(peak, Math.abs(td[i] - 128) / 128);
     waveBars.push(peak);
     if (waveBars.length > WAVE_SLOTS) waveBars.shift();
-    if (waveBars.length % 30 === 0) console.log('peak:', peak.toFixed(3));
+    // if (waveBars.length % 30 === 0) console.log('peak:', peak.toFixed(3));
 
     g.clearRect(0, 0, cv.width, cv.height);
     const w = cv.width / WAVE_SLOTS, mid = cv.height / 2;
@@ -213,4 +212,9 @@ async function startWave(stream) {
       g.fillRect(i * w + w * 0.22, mid - h / 2, Math.max(2, w * 0.56), h);
     }
   })();
+}
+function stopWave() {
+  waveOn = false;
+  if (waveRaf) { cancelAnimationFrame(waveRaf); waveRaf = null; }
+  if (waveCtxA) { waveCtxA.close().catch(() => {}); waveCtxA = null; }
 }
