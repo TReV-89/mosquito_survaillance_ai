@@ -5,45 +5,67 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="manifest" href="public/manifest.json">
   <title>VectorGuard AI</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
         :root{
-      --teal:#0D6E63; --teal-hover:#12857A; --teal-soft:#E3F0ED; --teal-ink:#07443D;
+      --teal:#33417E; --teal-hover:#3D4C92; --teal-soft:#E9EBF3; --teal-ink:#242C58;
       --paper:#EEF1EE; --card:#FFFFFF; --sunk:#E7EBE7;
       --line:#DADFD9; --line-2:#BFC5BE;
       --ink:#131714; --mid:#4F564F; --dim:#818880;
       --bad:#B23A2B; --ok:#2E7D5B;
+      --sans:"IBM Plex Sans", system-ui, -apple-system, sans-serif;
+      --mono:"IBM Plex Mono", ui-monospace, monospace;
     }
-    body { background: rgb(65, 185, 165); color: #fff; font-family: system-ui, sans-serif; padding: 16px; margin: 0; }
-    .container { max-width: 1100px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px; }
-    .header { display: flex; flex-direction: column; align-items: center; gap: 12px; text-align: center; }
-    .logo { max-width: 140px; height: auto; border-radius: 16px; box-shadow: 0 0 24px rgba(0,0,0,.35); }
-    .title { margin: 0; font-size: 1.4rem; letter-spacing: 0.02em; }
-    .card { background: #FFFDD0; padding: 16px; border-radius: 12px; border: 1px solid #333; }
-    .btn { width: 100%; padding: 14px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; }
-    .btn-red { background: #ff3b30; color: #fff; }
-    .btn-blue { background: #0a84ff; color: #fff; margin-top: 12px; }
-    .status-text { font-size: 1.1rem; color: #330606; margin: 4px 0; }
+     body { background: var(--paper); color: var(--ink); font-family: var(--sans); font-size: 15px; padding: 16px; margin: 0; line-height: 1.55; }
+     * { box-sizing: border-box; }
+    .container { max-width: 940px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px; }
+    .header { display: flex; flex-direction: row; align-items: center; gap: 14px; text-align: left; padding-bottom: 18px; border-bottom: 1px solid var(--line); }
+    .logo { width: 54px; height: 54px; max-width: none; object-fit: contain; background: #fff; border: 1px solid var(--line); border-radius: 10px; padding: 6px; box-shadow: none; }
+    .title { margin: 0; font-size: 19px; font-weight: 600; letter-spacing: -0.02em; }
+    .card { background: var(--card); padding: 22px; border-radius: 12px; border: 1px solid var(--line); }
+    .btn { width: 100%; padding: 13px 18px; border: 1px solid transparent; border-radius: 8px; font-size: 14.5px; font-weight: 500; cursor: pointer; transition: background .14s ease; }
+    .btn-red { background: var(--bad); color: #fff; }
+    .btn-red:hover { background: #C24433; }
+    .btn-blue { background: var(--teal); color: #fff; margin-top: 12px; }
+    .btn-blue:hover { background: var(--teal-hover); }
+    .status-text { font-size: 14px; color: var(--ink); margin: 0; background: var(--sunk); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; font-family: var(--mono); }
     .result-grid { display: grid; gap: 16px; grid-template-columns: 1fr; }
-    .result-panel { display: flex; flex-direction: column; gap: 16px; min-height: 360px; }
-    .accuracy-card { background: #fff; border: 1px solid #ccc; border-radius: 12px; padding: 14px; }
-    .accuracy-title { margin: 0 0 8px; font-size: 1rem; font-weight: 700; color: #330606; }
-    .indicator { width: 100%; height: 18px; background: #e5e5e5; border-radius: 999px; overflow: hidden; }
-    .indicator-fill { height: 100%; width: 0; background: #34c759; transition: width 0.35s ease, background 0.35s ease; }
-    .indicator-label { display: flex; justify-content: space-between; align-items: center; margin-top: 10px; font-size: 0.95rem; color: #330606; }
-    .map-frame { width: 100%; min-height: 300px; border: 1px solid #999; border-radius: 12px; }
-    .result-summary { color: #330606; font-size: 0.95rem; line-height: 1.5; }
-    .result-summary strong { color: #000; }
+    .result-panel { display: flex; flex-direction: column; gap: 16px; min-height: 0; }
+    .accuracy-card { background: var(--sunk); border: 1px solid var(--line); border-radius: 10px; padding: 16px; }
+    .accuracy-title { margin: 0 0 12px; font-family: var(--mono); font-size: 10.5px; letter-spacing: .08em; text-transform: uppercase; font-weight: 400; color: var(--dim);}
+    .indicator { width: 100%; height: 9px; background: rgba(19,23,20,.09); border-radius: 999px; overflow: hidden; }
+    .indicator-fill { height: 100%; width: 0; background: var(--ok); transition: width 0.35s ease, background 0.35s ease; border-radius: 999px; }
+    .indicator-label { display: flex; justify-content: space-between; align-items: baseline; margin-top: 10px; font-size: 13px; color: var(--mid);}
+    .map-frame { width: 100%; height: 290px; border: 1px solid var(--line); border-radius: 12px; }
+    .result-summary { color: var(--ink); font-size: 13.5px; border-top: 1px solid var(--line); line-height: 1.5; }
+    .result-summary strong { color: var(--mid); font-weight: 400; }
+    .chart-box { position: relative; height: 260px; background: var(--sunk); border: 1px solid var(--line); border-radius: 10px; padding: 12px; }
+    .meta-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 18px; }
+    .status-text b { display: block; font-family: var(--mono); font-size: 10.5px; letter-spacing: .08em; text-transform: uppercase; color: var(--dim); font-weight: 400; margin-bottom: 5px; }
+    .status-text label { margin-right: 12px; cursor: pointer; font-family: var(--sans);}
+    #waveBox { margin-top: 14px; background: var(--sunk); border: 1px solid var(--line); border-radius: 8px; padding: 12px; }
+    #waveCanvas { display: block; width: 100%; height: 80px; }
+    #accuracyLabel { font-family: var(--mono); font-size: 19px; font-weight: 600; color: var(--ink); }
+    .result-summary p { display: flex; justify-content: space-between; gap: 14px; margin: 0; padding: 10px 0; border-bottom: 1px solid var(--line); }
+    .result-panel h3 { margin: 0; font-size: 15.5px; font-weight: 600; letter-spacing: -.015em; }
+    #timer { font-family: var(--mono); font-size: 22px; font-weight: 500; color: var(--bad); }
+    .or { display: flex; align-items: center; gap: 14px; margin: 18px 0; font-family: var(--mono); font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--dim); }
+    .or::before, .or::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+    #audioFileInput { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+    .filebtn { display: block; text-align: center; padding: 13px 18px; border: 1px dashed var(--line-2); border-radius: 8px; background: var(--sunk); color: var(--mid); font-size: 14.5px; cursor: pointer; }
+    .filebtn:hover { border-color: var(--teal); color: var(--teal-ink); }
     @media (min-width: 860px) {
       .result-grid { grid-template-columns: 1fr 1fr; }
-      .result-panel { min-height: 420px; }
     }
     @media (max-width: 640px) {
       body { padding: 12px; }
-      .container { gap: 12px; }
+      .container { gap: 12px;}
       .card { padding: 14px; }
       .result-panel { min-height: auto; }
-      .status-text { font-size: 1rem; }
+      .status-text { font-size: 13.5px; }
     }
   </style>
 </head>
@@ -57,27 +79,34 @@
 
   <div class="card">
     <button class="btn btn-red" id="recordBtn">Start 30s Recording</button>
-    <div id="timer" style="text-align: center; margin-top: 8px; color: #ff9500; display: none;">00:30</div>
-    <p style="text-align:center; font-size: 1.2rem; color:#827831;">OR</p>
-    <input type="file" style="color:#330606; font-size: 1.0rem;" id="audioFileInput" accept="audio/*">
+    <div id="timer" style="text-align: center; margin-top: 8px; display: none;">00:30</div>
+    <div id="waveBox" style="display:none">
+      <canvas id="waveCanvas" width="900" height="160"></canvas>
+    </div>
+    <p class="or">or</p>
+    <input type="file" id="audioFileInput" accept="audio/*">
+    <label class="filebtn" for="audioFileInput">Choose an audio file</label>
   </div>
 
   <div class="card">
-    <p class="status-text">GPS: <span id="gpsVal">Fetching...</span></p>
-    <p class="status-text">Time: <span id="timeVal">--:--</span></p>
-    <p class="status-text">
-      Environment:
-      <label><input type="radio" name="env" value="indoor" checked> Indoor</label>
-      <label><input type="radio" name="env" value="outdoor"> Outdoor</label>
-    </p>
+    <div class="meta-grid">
+      <p class="status-text"><b>GPS</b><span id="gpsVal">Fetching...</span></p>
+      <p class="status-text"><b>Time</b><span id="timeVal">--:--</span></p>
+      <p class="status-text"><b>Environment</b>
+        <span>
+          <label><input type="radio" name="env" value="indoor" checked> Indoor</label>
+          <label><input type="radio" name="env" value="outdoor"> Outdoor</label>
+        </span>
+      </p>
+    </div>
     <button class="btn btn-blue" id="analyzeBtn">Analyze Acoustic Data</button>
   </div>
 
-  <div class="card" id="resultCard" >
+  <div class="card" id="resultCard" style="display:none">
       <div class="result-grid">
         <div class="result-panel">
           <h3>Detection Breakdown</h3>
-          <canvas id="pieChart"></canvas>
+          <div class="chart-box"><canvas id="pieChart"></canvas></div>
           <div class="accuracy-card">
             <p class="accuracy-title">Detection Confidence</p>
             <div class="indicator" aria-hidden="true">
@@ -94,13 +123,13 @@
           <h3>Regional Detection Map</h3>
           <iframe id="mapFrame" class="map-frame" src="" title="Regional detection map"></iframe>
           <div class="result-summary">
-            <p><strong>Location:</strong> <span id="mapCoords">Fetching...</span></p>
-            <p><strong>Recorded at:</strong> <span id="mapTime">--:--</span></p>
-            <p><strong>Environment:</strong> <span id="mapEnv">--</span></p>
+            <p><strong>Location</strong> <span id="mapCoords">Fetching...</span></p>
+            <p><strong>Recorded at</strong> <span id="mapTime">--:--</span></p>
+            <p><strong>Environment</strong> <span id="mapEnv">--</span></p>
           </div>
         </div>
       </div>
     </div>
-  </div>
   <script src="app.js"></script>
+</body>
 </html>

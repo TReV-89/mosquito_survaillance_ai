@@ -23,16 +23,21 @@ window.onload = () => {
 const recordBtn = document.getElementById('recordBtn');
 recordBtn.onclick = async () => {
   if (!mediaRecorder || mediaRecorder.state === 'inactive') {
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  const stream = await navigator.mediaDevices.getUserMedia({
+  audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false, channelCount: 1 }
+});
     mediaRecorder = new MediaRecorder(stream);
     audioChunks = [];
     
     mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
     mediaRecorder.onstop = () => {
+      stopWave();
+      stream.getTracks().forEach(t => t.stop());
       recordedBlob = new Blob(audioChunks, { type: mediaRecorder.mimeType });
     };
 
     mediaRecorder.start();
+    startWave(stream);
     recordBtn.innerText = 'Stop Recording';
     document.getElementById('timer').style.display = 'block';
 
@@ -155,4 +160,57 @@ function renderPieChart(pred) {
       }
     }
   });
+}
+
+/* ---------------- live waveform ---------------- */
+let waveCtxA = null, waveAnalyser = null, waveRaf = null, waveBars = [], waveOn = false;
+const WAVE_SLOTS = 90;
+
+async function startWave(stream) {
+  const cv = document.getElementById('waveCanvas');
+  if (!cv) return;
+  document.getElementById('waveBox').style.display = 'block';
+  document.getElementById('waveBox').style.display = 'block';
+  waveOn = true;
+
+  waveCtxA = new (window.AudioContext || window.webkitAudioContext)();
+  await waveCtxA.resume();
+  console.log('audio ctx:', waveCtxA.state);
+
+  waveAnalyser = waveCtxA.createAnalyser();
+  waveAnalyser.fftSize = 2048;
+  waveAnalyser.smoothingTimeConstant = 0;
+
+  const src = waveCtxA.createMediaStreamSource(stream);
+  const mute = waveCtxA.createGain();
+  mute.gain.value = 0;
+  src.connect(waveAnalyser);
+  waveAnalyser.connect(mute);
+  mute.connect(waveCtxA.destination);
+  const trk = stream.getAudioTracks()[0];
+  console.log('track:', trk.label, '| muted:', trk.muted, '| state:', trk.readyState);
+
+  const g = cv.getContext('2d');
+  const td = new Uint8Array(waveAnalyser.fftSize);
+  waveBars = [];
+
+  (function frame() {
+    if (!waveOn) return;
+    waveRaf = requestAnimationFrame(frame);
+    waveAnalyser.getByteTimeDomainData(td);
+
+    let peak = 0;
+    for (let i = 0; i < td.length; i += 4) peak = Math.max(peak, Math.abs(td[i] - 128) / 128);
+    waveBars.push(peak);
+    if (waveBars.length > WAVE_SLOTS) waveBars.shift();
+    if (waveBars.length % 30 === 0) console.log('peak:', peak.toFixed(3));
+
+    g.clearRect(0, 0, cv.width, cv.height);
+    const w = cv.width / WAVE_SLOTS, mid = cv.height / 2;
+    for (let i = 0; i < waveBars.length; i++) {
+      const h = Math.max(4, Math.min(1, Math.pow(waveBars[i] * 12, 0.6)) * cv.height * 0.9);
+      g.fillStyle = waveBars[i] > 0.01 ? '#33417E' : 'rgba(19,23,20,.20)';
+      g.fillRect(i * w + w * 0.22, mid - h / 2, Math.max(2, w * 0.56), h);
+    }
+  })();
 }
