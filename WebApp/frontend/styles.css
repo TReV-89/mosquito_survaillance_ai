@@ -38,14 +38,21 @@ body {
 
 .header {
   display: grid;
-  gap: 14px;
+  gap: 19px;
   place-items: center;
   text-align: center;
 }
 
+
+.footer {
+  text-align: center;
+  font-size: 0.88rem;
+  color: #a5b3c5;
+}
+
 .logo {
-  width: 150px;
-  height: 150px;
+  width: 200px;
+  height: 200px;
   object-fit: cover;
   border-radius: 28px;
   border: 1px solid rgba(255, 255, 255, 0.207);
@@ -73,6 +80,72 @@ body {
   box-shadow: 0 24px 70px rgba(0, 0, 0, 0.24);
   padding: 28px;
   backdrop-filter: blur(18px);
+}
+
+.processing-card {
+  min-height: 150px;
+  display: grid;
+  place-items: center;
+  background: rgba(10, 26, 35, 0.35);
+}
+
+.processing-wrap {
+  display: flex;
+  align-items: center;
+  gap: 22px;
+  justify-content: center;
+  text-align: left;
+  flex-wrap: wrap;
+}
+
+.processing-orb {
+  position: relative;
+  width: 88px;
+  height: 88px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, rgba(120, 244, 204, 0.8), rgba(71, 128, 211, 0.35) 45%, rgba(17, 26, 40, 0.84) 72%);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 0 25px rgba(62, 196, 170, 0.36);
+  animation: rotateOrbit 2s linear infinite;
+}
+
+.processing-core {
+  position: absolute;
+  inset: 18px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, rgba(255,255,255,0.95), rgba(112, 227, 186, 0.7));
+  box-shadow: 0 0 18px rgba(146, 255, 224, 0.7);
+}
+
+.processing-orb::before,
+.processing-orb::after {
+  content: "";
+  position: absolute;
+  inset: -10px;
+  border-radius: 50%;
+  border: 2px solid rgba(113, 227, 200, 0.36);
+  border-top-color: rgba(255, 255, 255, 0.8);
+  animation: pulseRing 1.5s ease-out infinite;
+}
+
+.processing-orb::after {
+  inset: 10px;
+  animation-delay: 0.5s;
+}
+
+.processing-text {
+  max-width: 520px;
+}
+
+.processing-text h3 {
+  margin: 0 0 8px;
+  font-size: clamp(1.3rem, 2vw, 1.8rem);
+}
+
+.processing-text p {
+  margin: 0;
+  line-height: 1.6;
+  color: rgba(236, 244, 255, 0.82);
 }
 
 .action-row {
@@ -106,6 +179,10 @@ body {
 
 .btn.btn-blue {
   background: linear-gradient(135deg, #e7d005dd, #52f71b67);
+}
+
+.btn.btn-print {
+  background: linear-gradient(135deg, #7c8cff, #4cc9f0);
 }
 
 .btn.recording {
@@ -293,6 +370,29 @@ input[type="file"] {
   color: #f8fbff;
 }
 
+.llm-panel {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 20px;
+  padding: 18px;
+}
+
+.llm-panel h3 {
+  margin: 0 0 10px;
+  color: #f7fbff;
+}
+
+.llm-panel p {
+  margin: 0;
+  color: #dfeafc;
+  line-height: 1.7;
+}
+
+.result-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
 @media (max-width: 900px) {
   .result-grid {
     grid-template-columns: 1fr;
@@ -335,4 +435,71 @@ input[type="file"] {
 @keyframes pulseGlow {
   from { box-shadow: 0 16px 30px rgba(255, 79, 79, 0.35); }
   to { box-shadow: 0 20px 38px rgba(255, 79, 79, 0.65); }
+}
+
+@keyframes rotateOrbit {
+  0% { transform: rotate(0deg) scale(1); }
+  50% { transform: rotate(180deg) scale(1.05); }
+  100% { transform: rotate(360deg) scale(1); }
+}
+
+@keyframes pulseRing {
+  0% { transform: scale(0.8); opacity: 0.7; }
+  70% { transform: scale(1.1); opacity: 0.2; }
+  100% { transform: scale(1.15); opacity: 0; }
+}
+
+@media print {
+  body {
+    background: #fff;
+    color: #111;
+    padding: 0;
+  }
+
+  .header,
+  .card:not(#resultCard),
+  .result-actions,
+  .processing-card,
+  .footer {
+    display: none !important;
+  }
+
+  .container {
+    max-width: 100%;
+    gap: 0;
+  }
+
+  #resultCard {
+    display: block !important;
+    box-shadow: none;
+    border: 1px solid #d5d9df;
+    background: white;
+    color: #111;
+    padding: 20px;
+  }
+
+  .result-panel,
+  .llm-panel,
+  .accuracy-card,
+  .result-summary {
+    color: #111 !important;
+    background: #fff !important;
+    border-color: #d5d9df !important;
+  }
+
+  .result-panel h3,
+  .llm-panel h3,
+  .result-summary strong,
+  .accuracy-title,
+  .indicator-label,
+  .status-text,
+  .result-summary p,
+  .llm-panel p {
+    color: #111 !important;
+  }
+
+  .map-frame {
+    min-height: 220px;
+    border: 1px solid #d5d9df;
+  }
 }

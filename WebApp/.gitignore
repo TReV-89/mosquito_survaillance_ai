@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.venv/
+venv/
+.env
+
+# Project runtime
+backend/uploads/
+backend/backend/uploads/
+*.wav
+*.webm
+*.ogg
+*.mp4
+
+# OS/editor
+.DS_Store
+Thumbs.db
+.vscode/

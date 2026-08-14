@@ -25,7 +25,58 @@ const recordBtn = document.getElementById('recordBtn');
 const timerEl = document.getElementById('timer');
 const recordingStatus = document.getElementById('recordingStatus');
 const analyzeBtn = document.getElementById('analyzeBtn');
+const processingCard = document.getElementById('processingCard');
+const resultCard = document.getElementById('resultCard');
+const printBtn = document.getElementById('printBtn');
+const llmInsight = document.getElementById('llmInsight');
 let recordingTimer = null;
+
+function showProcessingState() {
+  processingCard.classList.remove('hidden');
+  resultCard.classList.add('hidden');
+  analyzeBtn.disabled = true;
+  analyzeBtn.innerText = 'Analyzing...';
+}
+
+function hideProcessingState() {
+  processingCard.classList.add('hidden');
+  resultCard.classList.remove('hidden');
+  analyzeBtn.disabled = false;
+  analyzeBtn.innerText = 'Analyze Acoustic Data';
+}
+
+async function generateAIInsight(predictions) {
+  const values = {
+    anopheles: Number(predictions?.anopheles || 0),
+    non_anopheles: Number(predictions?.non_anopheles || 0),
+    other_insects_or_noise: Number(predictions?.other_insects_or_noise || 0)
+  };
+
+  const dominant = Math.max(...Object.values(values));
+  const highestType = Object.entries(values).sort((a, b) => b[1] - a[1])[0];
+
+  const localFallback = dominant >= 70
+    ? `High ${highestType[0] === 'anopheles' ? 'mosquito concentration' : highestType[0] === 'non_anopheles' ? 'vector activity' : 'ambient insect noise'} detected in this area. The concentration is elevated, and the location may not be safe for people who are at risk of mosquito bites. Please avoid long exposure, wear protective clothing, and consider reducing outdoor activity in this zone.`
+    : dominant >= 45
+      ? 'Moderate mosquito activity has been detected. The area is not entirely risk-free, but the concentration is manageable. Continue basic protection and monitor the site if it is frequently visited.'
+      : 'The current acoustic signal suggests low mosquito presence in this location. Conditions appear relatively safer, though routine prevention remains advisable.';
+
+  try {
+    const res = await fetch(`${API_BASE}/api/v1/llm-insight`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ predictions: values, summary: localFallback })
+    });
+
+    if (!res.ok) throw new Error('LLM endpoint unavailable');
+
+    const data = await res.json();
+    if (data && data.insight) return data.insight;
+  } catch (err) {
+  }
+
+  return localFallback;
+}
 
 function validateAudioInput(file) {
   if (!file) {
@@ -67,7 +118,6 @@ recordBtn.onclick = async () => {
   }
 
   if (!mediaRecorder || mediaRecorder.state === 'inactive') {
-<<<<<<< HEAD
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       mediaRecorder = new MediaRecorder(stream);
@@ -77,25 +127,6 @@ recordBtn.onclick = async () => {
       mediaRecorder.onstop = () => {
         recordedBlob = new Blob(audioChunks, { type: mediaRecorder.mimeType });
       };
-=======
-  const stream = await navigator.mediaDevices.getUserMedia({
-  audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false, channelCount: 1 }
-});
-    mediaRecorder = new MediaRecorder(stream);
-    audioChunks = [];
-    
-    mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
-    mediaRecorder.onstop = () => {
-      stopWave();
-      stream.getTracks().forEach(t => t.stop());
-      recordedBlob = new Blob(audioChunks, { type: mediaRecorder.mimeType });
-    };
-
-    mediaRecorder.start();
-    startWave(stream);
-    recordBtn.innerText = 'Stop Recording';
-    document.getElementById('timer').style.display = 'block';
->>>>>>> 682a7e511b14756e74cb8423f762d4f648a5b9a1
 
       mediaRecorder.start();
       recordBtn.innerText = 'Stop Recording';
@@ -162,8 +193,7 @@ analyzeBtn.onclick = async () => {
   };
   formData.append('metadata', JSON.stringify(metadata));
 
-  analyzeBtn.disabled = true;
-  analyzeBtn.innerText = 'Analyzing...';
+  showProcessingState();
 
   try {
     const res = await fetch(`${API_BASE}/api/v1/detect`, { method: 'POST', body: formData });
@@ -186,12 +216,17 @@ analyzeBtn.onclick = async () => {
     updateResultMap(metadata);
     updateResultSummary(metadata);
     updateAccuracyIndicator(data.predictions);
+    llmInsight.innerText = await generateAIInsight(data.predictions);
+    hideProcessingState();
   } catch (err) {
+    llmInsight.innerText = 'The system could not complete the analysis. Please try again or check the input audio.';
+    hideProcessingState();
     alert(err.message || 'Failed to connect to backend API.');
-  } finally {
-    analyzeBtn.disabled = false;
-    analyzeBtn.innerText = 'Analyze Acoustic Data';
   }
+};
+
+printBtn.onclick = () => {
+  window.print();
 };
 
 function getMapUrl(coords) {
@@ -267,61 +302,4 @@ function renderPieChart(pred) {
       }
     }
   });
-}
-
-/* ---------------- live waveform ---------------- */
-let waveCtxA = null, waveAnalyser = null, waveRaf = null, waveBars = [], waveOn = false;
-const WAVE_SLOTS = 90;
-
-async function startWave(stream) {
-  const cv = document.getElementById('waveCanvas');
-  if (!cv) return;
-  document.getElementById('waveBox').style.display = 'block';
-  waveOn = true;
-
-  waveCtxA = new (window.AudioContext || window.webkitAudioContext)();
-  await waveCtxA.resume();
-  // console.log('audio ctx:', waveCtxA.state);
-
-  waveAnalyser = waveCtxA.createAnalyser();
-  waveAnalyser.fftSize = 2048;
-  waveAnalyser.smoothingTimeConstant = 0;
-
-  const src = waveCtxA.createMediaStreamSource(stream);
-  const mute = waveCtxA.createGain();
-  mute.gain.value = 0;
-  src.connect(waveAnalyser);
-  waveAnalyser.connect(mute);
-  mute.connect(waveCtxA.destination);
-  const trk = stream.getAudioTracks()[0];
-  // console.log('track:', trk.label, '| muted:', trk.muted, '| state:', trk.readyState);
-
-  const g = cv.getContext('2d');
-  const td = new Uint8Array(waveAnalyser.fftSize);
-  waveBars = [];
-
-  (function frame() {
-    if (!waveOn) return;
-    waveRaf = requestAnimationFrame(frame);
-    waveAnalyser.getByteTimeDomainData(td);
-
-    let peak = 0;
-    for (let i = 0; i < td.length; i += 4) peak = Math.max(peak, Math.abs(td[i] - 128) / 128);
-    waveBars.push(peak);
-    if (waveBars.length > WAVE_SLOTS) waveBars.shift();
-    // if (waveBars.length % 30 === 0) console.log('peak:', peak.toFixed(3));
-
-    g.clearRect(0, 0, cv.width, cv.height);
-    const w = cv.width / WAVE_SLOTS, mid = cv.height / 2;
-    for (let i = 0; i < waveBars.length; i++) {
-      const h = Math.max(4, Math.min(1, Math.pow(waveBars[i] * 12, 0.6)) * cv.height * 0.9);
-      g.fillStyle = waveBars[i] > 0.01 ? '#33417E' : 'rgba(19,23,20,.20)';
-      g.fillRect(i * w + w * 0.22, mid - h / 2, Math.max(2, w * 0.56), h);
-    }
-  })();
-}
-function stopWave() {
-  waveOn = false;
-  if (waveRaf) { cancelAnimationFrame(waveRaf); waveRaf = null; }
-  if (waveCtxA) { waveCtxA.close().catch(() => {}); waveCtxA = null; }
 }

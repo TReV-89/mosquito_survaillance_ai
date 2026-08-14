@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="manifest" href="public/manifest.json">
+  <link rel="stylesheet" href="styles.css">
+  <meta name="api-base" content="http://localhost:8000">
+  <title>VectorGuard AI</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+       <img src="public/icons/mosquito pic.png" alt="CMU Africa Logo" class="logo">
+
+    
+    <h2 class="title">VectorGuard AI Dashboard</h2>
+    <p class="subtitle">Smart acoustic Mosquito detection.</p>
+  </div>
+
+  <div class="card">
+    <div class="action-row">
+      <button class="btn btn-red" id="recordBtn">Start 30s Recording</button>
+      <div id="timer" class="timer hidden">00:30</div>
+      <div class="recording-status hidden" id="recordingStatus">
+        <div class="recording-pill"><span class="recording-dot"></span>Recording in progress</div>
+        <div class="waveform" id="waveform">
+          <div class="wave-bar"></div>
+          <div class="wave-bar"></div>
+          <div class="wave-bar"></div>
+          <div class="wave-bar"></div>
+          <div class="wave-bar"></div>
+          <div class="wave-bar"></div>
+          <div class="wave-bar"></div>
+          <div class="wave-bar"></div>
+          <div class="wave-bar"></div>
+          <div class="wave-bar"></div>
+        </div>
+      </div>
+      <p class="subtitle" style="margin:0; text-align:center;">OR upload an existing audio file for analysis.</p>
+      <input type="file" id="audioFileInput" accept="audio/*">
+    </div>
+  </div>
+
+  <div class="card">
+    <p class="status-text">GPS: <span id="gpsVal">Fetching...</span></p>
+    <p class="status-text">Time: <span id="timeVal">--:--</span></p>
+    <p class="status-text">
+      Environment:
+      <label><input type="radio" name="env" value="indoor" checked> Indoor</label>
+      <label><input type="radio" name="env" value="outdoor"> Outdoor</label>
+    </p>
+    <br>
+    <button class="btn btn-blue" id="analyzeBtn">Analyze Acoustic Data</button>
+  </div>
+
+  <div class="card processing-card hidden" id="processingCard" aria-live="polite">
+    <div class="processing-wrap">
+      <div class="processing-orb" aria-hidden="true">
+        <span class="processing-core"></span>
+      </div>
+      <div class="processing-text">
+        <h3>Analyzing acoustic data...</h3>
+        <p>Processing the sound pattern and estimating mosquito concentration. This may take a few moments.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="card hidden" id="resultCard">
+      <div class="result-grid">
+        <div class="result-panel">
+          <h3>Detection Breakdown</h3>
+          <canvas id="pieChart"></canvas>
+          <div class="accuracy-card">
+            <p class="accuracy-title">Detection Confidence</p>
+            <div class="indicator" aria-hidden="true">
+              <div id="accuracyFill" class="indicator-fill"></div>
+            </div>
+            <div class="indicator-label">
+              <span id="accuracyLabel">0%</span>
+              <span id="accuracyText">Low confidence</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="result-panel">
+          <h3>Regional Detection Map</h3>
+          <iframe id="mapFrame" class="map-frame" src="" title="Regional detection map"></iframe>
+          <div class="result-summary">
+            <p><strong>Location:</strong> <span id="mapCoords">Fetching...</span></p>
+            <p><strong>Recorded at:</strong> <span id="mapTime">--:--</span></p>
+            <p><strong>Environment:</strong> <span id="mapEnv">--</span></p>
+          </div>
+          <div class="llm-panel">
+            <h3>AI Safety Interpretation</h3>
+            <p id="llmInsight">No analysis has been generated yet.</p>
+          </div>
+          <div class="result-actions">
+            <button class="btn btn-print" id="printBtn" type="button">Print Report</button>
+          </div>
+        </div>
+      </div>
+    </div>
+</div>
+<footer class="footer">
+  &copy; 2026 VectorGuard AI. Demostrated on Academic Bootcamp Project at Carnegie Mellon University Africa. All rights reserved.
+</footer>
+<script src="app.js"></script>
+</body>
+</html>
