@@ -2,6 +2,7 @@ let mediaRecorder;
 let audioChunks = [];
 let recordedBlob = null;
 let chartInstance = null;
+const API_BASE = document.querySelector('meta[name="api-base"]')?.getAttribute('content') || 'http://localhost:8000';
 
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('public/sw.js');
@@ -21,46 +22,118 @@ window.onload = () => {
 };
 
 const recordBtn = document.getElementById('recordBtn');
+const timerEl = document.getElementById('timer');
+const recordingStatus = document.getElementById('recordingStatus');
+const analyzeBtn = document.getElementById('analyzeBtn');
+let recordingTimer = null;
+
+function validateAudioInput(file) {
+  if (!file) {
+    return 'Please record 30 seconds of audio or upload an audio file first.';
+  }
+
+  if (!(file instanceof Blob)) {
+    return 'The selected audio input is invalid.';
+  }
+
+  if (!file.type || !file.type.startsWith('audio/')) {
+    return 'The selected file is not a valid audio file.';
+  }
+
+  if (file.size <= 0) {
+    return 'The selected audio file is empty.';
+  }
+
+  if (file.size > 25 * 1024 * 1024) {
+    return 'The selected audio file is too large. Please use a file smaller than 25MB.';
+  }
+
+  return null;
+}
+
+function validateEnvironment() {
+  const selected = document.querySelector('input[name="env"]:checked');
+  if (!selected) {
+    return 'Please select the environment before analysis.';
+  }
+
+  return null;
+}
+
 recordBtn.onclick = async () => {
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    alert('This browser does not support microphone access. Please use a modern browser.');
+    return;
+  }
+
   if (!mediaRecorder || mediaRecorder.state === 'inactive') {
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    mediaRecorder = new MediaRecorder(stream);
-    audioChunks = [];
-    
-    mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
-    mediaRecorder.onstop = () => {
-      recordedBlob = new Blob(audioChunks, { type: mediaRecorder.mimeType });
-    };
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      mediaRecorder = new MediaRecorder(stream);
+      audioChunks = [];
 
-    mediaRecorder.start();
-    recordBtn.innerText = 'Stop Recording';
-    document.getElementById('timer').style.display = 'block';
+      mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+      mediaRecorder.onstop = () => {
+        recordedBlob = new Blob(audioChunks, { type: mediaRecorder.mimeType });
+      };
 
-    let sec = 30;
-    const interval = setInterval(() => {
-      sec--;
-      document.getElementById('timer').innerText = `00:${sec < 10 ? '0' : ''}${sec}`;
-      if (sec <= 0 || mediaRecorder.state === 'inactive') {
-        clearInterval(interval);
-        if (mediaRecorder.state === 'recording') mediaRecorder.stop();
-        recordBtn.innerText = 'Start 30s Recording';
-        document.getElementById('timer').style.display = 'none';
-      }
-    }, 1000);
+      mediaRecorder.start();
+      recordBtn.innerText = 'Stop Recording';
+      recordBtn.classList.add('recording');
+      timerEl.classList.remove('hidden');
+      recordingStatus.classList.remove('hidden');
+      startCountdown(30);
+    } catch (err) {
+      alert('Unable to access microphone. Please allow audio permissions.');
+    }
   } else {
-    mediaRecorder.stop();
+    stopRecording();
   }
 };
+
+function startCountdown(duration) {
+  let sec = duration;
+  timerEl.innerText = formatTime(sec);
+  recordingTimer = setInterval(() => {
+    sec -= 1;
+    timerEl.innerText = formatTime(sec);
+    if (sec <= 0) {
+      stopRecording();
+    }
+  }, 1000);
+}
+
+function stopRecording() {
+  if (mediaRecorder && mediaRecorder.state === 'recording') {
+    mediaRecorder.stop();
+  }
+  clearInterval(recordingTimer);
+  recordBtn.innerText = 'Start 30s Recording';
+  recordBtn.classList.remove('recording');
+  timerEl.classList.add('hidden');
+  recordingStatus.classList.add('hidden');
+}
+
+function formatTime(sec) {
+  const mins = Math.floor(sec / 60);
+  const secs = sec % 60;
+  return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+}
 
 document.getElementById('audioFileInput').onchange = (e) => {
   recordedBlob = e.target.files[0];
 };
 
-document.getElementById('analyzeBtn').onclick = async () => {
-  if (!recordedBlob) return alert('Please record 30s audio or upload an audio file first.');
+analyzeBtn.onclick = async () => {
+  const audioValidationError = validateAudioInput(recordedBlob);
+  if (audioValidationError) return alert(audioValidationError);
+
+  const environmentValidationError = validateEnvironment();
+  if (environmentValidationError) return alert(environmentValidationError);
 
   const formData = new FormData();
-  formData.append('audio', recordedBlob, 'recording.webm');
+  const fileName = recordedBlob.name || `recording.${recordedBlob.type.includes('audio/wav') ? 'wav' : 'webm'}`;
+  formData.append('audio', recordedBlob, fileName);
 
   const metadata = {
     location: window.userCoords || null,
@@ -69,16 +142,35 @@ document.getElementById('analyzeBtn').onclick = async () => {
   };
   formData.append('metadata', JSON.stringify(metadata));
 
+  analyzeBtn.disabled = true;
+  analyzeBtn.innerText = 'Analyzing...';
+
   try {
-    const res = await fetch('http://localhost:8000/api/v1/detect', { method: 'POST', body: formData });
-    const data = await res.json();
-    
+    const res = await fetch(`${API_BASE}/api/v1/detect`, { method: 'POST', body: formData });
+    const responseText = await res.text();
+
+    let data = {};
+    if (responseText) {
+      try {
+        data = JSON.parse(responseText);
+      } catch (err) {
+        throw new Error('Backend returned an invalid response.');
+      }
+    }
+
+    if (!res.ok) {
+      throw new Error(data.detail || 'Backend analysis request failed.');
+    }
+
     renderPieChart(data.predictions);
     updateResultMap(metadata);
     updateResultSummary(metadata);
     updateAccuracyIndicator(data.predictions);
   } catch (err) {
-    alert('Failed to connect to backend API.');
+    alert(err.message || 'Failed to connect to backend API.');
+  } finally {
+    analyzeBtn.disabled = false;
+    analyzeBtn.innerText = 'Analyze Acoustic Data';
   }
 };
 

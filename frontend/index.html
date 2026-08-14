@@ -4,55 +4,41 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="manifest" href="public/manifest.json">
+  <link rel="stylesheet" href="styles.css">
+  <meta name="api-base" content="http://localhost:8000">
   <title>VectorGuard AI</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <style>
-    body { background: rgb(65, 185, 165); color: #fff; font-family: system-ui, sans-serif; padding: 16px; margin: 0; }
-    .container { max-width: 1100px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px; }
-    .header { display: flex; flex-direction: column; align-items: center; gap: 12px; text-align: center; }
-    .logo { max-width: 140px; height: auto; border-radius: 16px; box-shadow: 0 0 24px rgba(0,0,0,.35); }
-    .title { margin: 0; font-size: 1.4rem; letter-spacing: 0.02em; }
-    .card { background: #FFFDD0; padding: 16px; border-radius: 12px; border: 1px solid #333; }
-    .btn { width: 100%; padding: 14px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; }
-    .btn-red { background: #ff3b30; color: #fff; }
-    .btn-blue { background: #0a84ff; color: #fff; margin-top: 12px; }
-    .status-text { font-size: 1.1rem; color: #330606; margin: 4px 0; }
-    .result-grid { display: grid; gap: 16px; grid-template-columns: 1fr; }
-    .result-panel { display: flex; flex-direction: column; gap: 16px; min-height: 360px; }
-    .accuracy-card { background: #fff; border: 1px solid #ccc; border-radius: 12px; padding: 14px; }
-    .accuracy-title { margin: 0 0 8px; font-size: 1rem; font-weight: 700; color: #330606; }
-    .indicator { width: 100%; height: 18px; background: #e5e5e5; border-radius: 999px; overflow: hidden; }
-    .indicator-fill { height: 100%; width: 0; background: #34c759; transition: width 0.35s ease, background 0.35s ease; }
-    .indicator-label { display: flex; justify-content: space-between; align-items: center; margin-top: 10px; font-size: 0.95rem; color: #330606; }
-    .map-frame { width: 100%; min-height: 300px; border: 1px solid #999; border-radius: 12px; }
-    .result-summary { color: #330606; font-size: 0.95rem; line-height: 1.5; }
-    .result-summary strong { color: #000; }
-    @media (min-width: 860px) {
-      .result-grid { grid-template-columns: 1fr 1fr; }
-      .result-panel { min-height: 420px; }
-    }
-    @media (max-width: 640px) {
-      body { padding: 12px; }
-      .container { gap: 12px; }
-      .card { padding: 14px; }
-      .result-panel { min-height: auto; }
-      .status-text { font-size: 1rem; }
-    }
-  </style>
 </head>
 <body>
 <div class="container">
   <div class="header">
     <img src="public/icons/CMU Africa Logo.png" alt="CMU Africa Logo" class="logo">
     <h2 class="title">VectorGuard AI Dashboard</h2>
+    <p class="subtitle">Smart acoustic Mosquito detection.</p>
   </div>
-  
 
   <div class="card">
-    <button class="btn btn-red" id="recordBtn">Start 30s Recording</button>
-    <div id="timer" style="text-align: center; margin-top: 8px; color: #ff9500; display: none;">00:30</div>
-    <p style="text-align:center; font-size: 1.2rem; color:#827831;">OR</p>
-    <input type="file" style="color:#330606; font-size: 1.0rem;" id="audioFileInput" accept="audio/*">
+    <div class="action-row">
+      <button class="btn btn-red" id="recordBtn">Start 30s Recording</button>
+      <div id="timer" class="timer hidden">00:30</div>
+      <div class="recording-status hidden" id="recordingStatus">
+        <div class="recording-pill"><span class="recording-dot"></span>Recording in progress</div>
+        <div class="waveform" id="waveform">
+          <div class="wave-bar"></div>
+          <div class="wave-bar"></div>
+          <div class="wave-bar"></div>
+          <div class="wave-bar"></div>
+          <div class="wave-bar"></div>
+          <div class="wave-bar"></div>
+          <div class="wave-bar"></div>
+          <div class="wave-bar"></div>
+          <div class="wave-bar"></div>
+          <div class="wave-bar"></div>
+        </div>
+      </div>
+      <p class="subtitle" style="margin:0; text-align:center;">OR upload an existing audio file for analysis.</p>
+      <input type="file" id="audioFileInput" accept="audio/*">
+    </div>
   </div>
 
   <div class="card">
@@ -63,6 +49,7 @@
       <label><input type="radio" name="env" value="indoor" checked> Indoor</label>
       <label><input type="radio" name="env" value="outdoor"> Outdoor</label>
     </p>
+    <br>
     <button class="btn btn-blue" id="analyzeBtn">Analyze Acoustic Data</button>
   </div>
 
@@ -96,4 +83,5 @@
     </div>
   </div>
   <script src="app.js"></script>
+</body>
 </html>
