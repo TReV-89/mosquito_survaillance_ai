@@ -45,18 +45,17 @@ function hideProcessingState() {
   analyzeBtn.innerText = 'Analyze Acoustic Data';
 }
 
-async function generateAIInsight(predictions) {
+async function generateAIInsight(predictions, environment) {
   const values = {
     anopheles: Number(predictions?.anopheles || 0),
-    non_anopheles: Number(predictions?.non_anopheles || 0),
-    other_insects_or_noise: Number(predictions?.other_insects_or_noise || 0)
+    non_anopheles: Number(predictions?.non_anopheles || 0)
   };
 
   const dominant = Math.max(...Object.values(values));
   const highestType = Object.entries(values).sort((a, b) => b[1] - a[1])[0];
 
   const localFallback = dominant >= 70
-    ? `High ${highestType[0] === 'anopheles' ? 'mosquito concentration' : highestType[0] === 'non_anopheles' ? 'vector activity' : 'ambient insect noise'} detected in this area. The concentration is elevated, and the location may not be safe for people who are at risk of mosquito bites. Please avoid long exposure, wear protective clothing, and consider reducing outdoor activity in this zone.`
+    ? `High ${highestType[0] === 'anopheles' ? 'mosquito concentration' : 'vector activity'} detected in this area. The concentration is elevated, and the location may not be safe for people who are at risk of mosquito bites. Please avoid long exposure, wear protective clothing, and consider reducing outdoor activity in this zone.`
     : dominant >= 45
       ? 'Moderate mosquito activity has been detected. The area is not entirely risk-free, but the concentration is manageable. Continue basic protection and monitor the site if it is frequently visited.'
       : 'The current acoustic signal suggests low mosquito presence in this location. Conditions appear relatively safer, though routine prevention remains advisable.';
@@ -65,7 +64,7 @@ async function generateAIInsight(predictions) {
     const res = await fetch(`${API_BASE}/api/v1/llm-insight`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ predictions: values, summary: localFallback })
+      body: JSON.stringify({ predictions: values, environment: environment || 'unknown' })
     });
 
     if (!res.ok) throw new Error('LLM endpoint unavailable');
@@ -216,7 +215,7 @@ analyzeBtn.onclick = async () => {
     updateResultMap(metadata);
     updateResultSummary(metadata);
     updateAccuracyIndicator(data.predictions);
-    llmInsight.innerText = await generateAIInsight(data.predictions);
+    llmInsight.innerText = await generateAIInsight(data.predictions, metadata.environment);
     hideProcessingState();
   } catch (err) {
     llmInsight.innerText = 'The system could not complete the analysis. Please try again or check the input audio.';
@@ -257,7 +256,7 @@ function updateResultSummary(metadata) {
 }
 
 function updateAccuracyIndicator(pred) {
-  const values = [pred.anopheles || 0, pred.non_anopheles || 0, pred.other_insects_or_noise || 0];
+  const values = [pred.anopheles || 0, pred.non_anopheles || 0];
   const accuracy = Math.round(Math.max(...values));
   const fill = document.getElementById('accuracyFill');
   const label = document.getElementById('accuracyLabel');
@@ -290,10 +289,10 @@ function renderPieChart(pred) {
   chartInstance = new Chart(ctx, {
     type: 'pie',
     data: {
-      labels: ['Anopheles', 'Non-Anopheles', 'Other Insects/Noise'],
+      labels: ['Anopheles', 'Non-Anopheles'],
       datasets: [{
-        data: [pred.anopheles || 0, pred.non_anopheles || 0, pred.other_insects_or_noise || 0],
-        backgroundColor: ['#ff3b30', '#ff9500', '#34c759']
+        data: [pred.anopheles || 0, pred.non_anopheles || 0],
+        backgroundColor: ['#ff3b30', '#34c759']
       }]
     },
     options: {

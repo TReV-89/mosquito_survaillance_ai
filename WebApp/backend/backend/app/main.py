@@ -2,6 +2,7 @@ import json
 import os
 import shutil
 import uuid
+from pydantic import BaseModel
 
 
 from pathlib import Path
@@ -11,6 +12,12 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.ml_engine import predict_mosquito_species
 from app.utils import convert_to_mono_wav
+from app.llm_engine import generate_insight
+
+
+class InsightRequest(BaseModel):
+    predictions: dict
+    environment: str = "unknown"
 
 app = FastAPI(title="VectorGuard AI API", version="1.0.0")
 
@@ -100,7 +107,7 @@ async def detect_mosquito(
             buffer.write(content)
 
         try:
-            convert_to_mono_wav(str(raw_path), str(converted_wav_path))
+            convert_to_mono_wav(str(raw_path), str(converted_wav_path), target_sample_rate=8000)
             predictions = predict_mosquito_species(str(converted_wav_path), parsed_metadata)
         finally:
             if raw_path.exists():
@@ -119,6 +126,15 @@ async def detect_mosquito(
         raise
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+@app.post("/api/v1/llm-insight")
+async def llm_insight(payload: InsightRequest):
+    try:
+        insight = generate_insight(payload.predictions, payload.environment)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+    return {"status": "success", "insight": insight}
 
 
 if __name__ == "__main__":
