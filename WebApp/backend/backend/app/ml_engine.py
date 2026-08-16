@@ -7,77 +7,122 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torchaudio
+import torchaudio.transforms as T
 
 NUM_CLASSES = 2
 SAMPLE_RATE = 8000
 TARGET_LENGTH = SAMPLE_RATE
 MODEL_PATH = (
-    Path(__file__).resolve().parent.parent / "model" / "Malaria_detector_Net_V4.pth"
+    Path(__file__).resolve().parent.parent / "model" / "Malaria_detector_Net_V6.pth"
 )
 
 
-class MosquitoMelNet(nn.Module):
-    def __init__(self, num_classes, sample_rate=8000, n_mels=64):
-        super(MosquitoMelNet, self).__init__()
-
-        # 1. Mel Spectrogram Feature Extractor
-        # Generates a visual-audio matrix mapping biological frequencies
-        self.mel_spec = torchaudio.transforms.MelSpectrogram(
-            sample_rate=sample_rate,
-            n_fft=256,
-            hop_length=80,
-            n_mels=n_mels,
-        )
-        # Convert power to decibels (log scale) to highlight subtle hums
-        self.amplitude_to_db = torchaudio.transforms.AmplitudeToDB()
-
-        # 2. First Spatial CNN (n_mels becomes the in_channels)
-        self.conv1 = nn.Conv1d(in_channels=n_mels, out_channels=64, kernel_size=5, padding=2)
-        self.pool1 = nn.MaxPool1d(2)
-
-        # 3. Second Spatial CNN
-        self.conv2 = nn.Conv1d(in_channels=64, out_channels=64, kernel_size=5, padding=2)
-        self.pool2 = nn.MaxPool1d(2)
-
-        self.relu = nn.LeakyReLU(0.2)
-        self.dropout = nn.Dropout(0.5)
-
-        # 4. LSTM (Receiving the compressed Mel-CNN sequence)
-        self.lstm = nn.LSTM(
-            input_size=64, hidden_size=128, num_layers=2, batch_first=True, dropout=0.3
-        )
-
-        # 5. Final Classification
-        self.fc = nn.Linear(128, num_classes)
+class SpecAugmentPipeline(nn.Module):
+    """Applies frequency and time masking to prevent overfitting to background noise."""
+    def __init__(self, freq_mask_param=15, time_mask_param=35):
+        super().__init__()
+        self.freq_mask = T.FrequencyMasking(freq_mask_param=freq_mask_param)
+        self.time_mask = T.TimeMasking(time_mask_param=time_mask_param)
 
     def forward(self, x):
-        # Ensure input is 2D: (batch, time)
+        if self.training:
+            x = self.freq_mask(x)
+            x = self.time_mask(x)
+        return x
+
+
+class AttentionPooling(nn.Module):
+    """Dynamically weights important time steps containing mosquito flight tones."""
+    def __init__(self, hidden_dim):
+        super().__init__()
+        self.attention = nn.Sequential(
+            nn.Linear(hidden_dim, 64),
+            nn.Tanh(),
+            nn.Linear(64, 1)
+        )
+
+    def forward(self, lstm_output):
+        # lstm_output shape: (batch, seq_len, hidden_dim)
+        weights = torch.softmax(self.attention(lstm_output), dim=1) # (batch, seq_len, 1)
+        context = torch.sum(weights * lstm_output, dim=1)            # (batch, hidden_dim)
+        return context
+
+
+class MosquitoAttnNet(nn.Module):
+    def __init__(self, num_classes=2, sample_rate=8000, n_mfcc=40):
+        super(MosquitoAttnNet, self).__init__()
+        
+        # 1. MFCC Feature Extractor
+        self.mfcc = torchaudio.transforms.MFCC(
+            sample_rate=sample_rate,
+            n_mfcc=n_mfcc,
+            melkwargs={'n_fft': 256, 'hop_length': 80, 'n_mels': 64}
+        )
+        
+        # 2. SpecAugment regularization (only active during model.train())
+        self.spec_augment = SpecAugmentPipeline()
+        
+        # 3. 2D Convolutional Backbone (Treats MFCC like a 1-channel image: [batch, 1, n_mfcc, time])
+        self.conv1 = nn.Conv2d(in_channels=1, out_channels=32, kernel_size=3, padding=1)
+        self.bn1 = nn.BatchNorm2d(32)
+        self.pool1 = nn.MaxPool2d((2, 2))
+        
+        self.conv2 = nn.Conv2d(in_channels=32, out_channels=64, kernel_size=3, padding=1)
+        self.bn2 = nn.BatchNorm2d(64)
+        self.pool2 = nn.MaxPool2d((2, 2))
+        
+        self.relu = nn.LeakyReLU(0.2)
+        self.dropout = nn.Dropout(0.4)
+        
+        # 4. Bi-directional LSTM for temporal pattern capture
+        # After two max pooling layers on n_mfcc=40, feature dimension becomes: (40 / 4) * 64 = 640
+        self.lstm = nn.LSTM(input_size=640, hidden_size=128, num_layers=2, 
+                            batch_first=True, bidirectional=True, dropout=0.3)
+        
+        # 5. Self-Attention Pooling (hidden_size * 2 due to bidirectional LSTM = 256)
+        self.attention_pool = AttentionPooling(hidden_dim=256)
+        
+        # 6. Final Classification Head
+        self.fc = nn.Sequential(
+            nn.Linear(256, 64),
+            nn.ReLU(),
+            nn.Dropout(0.3),
+            nn.Linear(64, num_classes)
+        )
+
+    def forward(self, x):
         if x.dim() == 3:
             x = x.squeeze(1)
-
-        # Extract Mel Spectrogram features
-        x = self.mel_spec(x)
-        x = self.amplitude_to_db(x)  # Output shape: (batch, n_mels, time_frames)
-
-        # Pass through CNNs
-        x = self.pool1(self.relu(self.conv1(x)))
-        x = self.pool2(self.relu(self.conv2(x)))
-
-        # Reshape for LSTM: from (batch, features, seq_len) to (batch, seq_len, features)
-        x = x.transpose(1, 2)
-
+            
+        # Extract MFCC -> Shape: (batch, n_mfcc, time_frames)
+        x = self.mfcc(x)
+        
+        # Add channel dimension for 2D Conv -> Shape: (batch, 1, n_mfcc, time_frames)
+        x = x.unsqueeze(1)
+        x = self.spec_augment(x)
+        
+        # Pass through 2D CNN layers
+        x = self.pool1(self.bn1(self.relu(self.conv1(x))))
+        x = self.pool2(self.bn2(self.relu(self.conv2(x))))
+        
+        # Reshape for LSTM: collapse frequency and channel dimensions into features
+        # Shape becomes: (batch, time_frames, channels * remaining_mels)
+        b, c, m, t = x.shape
+        x = x.permute(0, 3, 1, 2).contiguous().view(b, t, c * m)
+        
+        # LSTM sequence processing
         lstm_out, _ = self.lstm(x)
-
-        # Apply dropout to the final time step prediction
-        last_out = self.dropout(lstm_out[:, -1, :])
-        return self.fc(last_out)
+        
+        # Attention Pooling over all time steps
+        x = self.attention_pool(lstm_out)
+        x = self.dropout(x)
+        
+        return self.fc(x)
 
 
 def _select_device() -> torch.device:
     if torch.cuda.is_available():
         return torch.device("cuda")
-    if torch.backends.mps.is_available():
-        return torch.device("mps")
     return torch.device("cpu")
 
 
@@ -134,7 +179,7 @@ def _load_model() -> tuple[nn.Module, torch.device]:
         raise FileNotFoundError(f"Model weights not found: {MODEL_PATH}")
 
     device = _select_device()
-    model = MosquitoMelNet(num_classes=NUM_CLASSES).to(device)
+    model = MosquitoAttnNet(num_classes=NUM_CLASSES).to(device)
     try:
         state_dict = torch.load(MODEL_PATH, map_location=device, weights_only=True)
     except TypeError:

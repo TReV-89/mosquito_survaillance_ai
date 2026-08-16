@@ -2,11 +2,10 @@ import os
 
 from pathlib import Path
 
-from dotenv import load_dotenv
+from dotenv import load_dotenv, find_dotenv
 from langchain_groq import ChatGroq
 
-ENV_PATH = Path(__file__).resolve().parent.parent.parent.parent / ".env"
-load_dotenv(dotenv_path=ENV_PATH)
+load_dotenv(find_dotenv())
 
 if not os.environ.get("GROQ_API_KEY"):
     raise RuntimeError("GROQ_API_KEY is not set. Add it to your .env file.")
