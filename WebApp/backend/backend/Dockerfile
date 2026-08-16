@@ -9,7 +9,7 @@ WORKDIR /app
 
 # Copy requirements and install CPU-optimized PyTorch & dependencies
 COPY requirements.txt .
-RUN pip install --no-cache-dir torch==2.2.0 torchaudio==2.2.0 --index-url https://download.pytorch.org/whl/cpu
+RUN pip install --no-cache-dir torch==2.2.0 torchaudio==2.2.0 --extra-index-url https://download.pytorch.org/whl/cpu
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy model weights and application source code
