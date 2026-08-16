@@ -11,8 +11,9 @@ services:
         sync: false  # You will enter your Groq API key in the Render dashboard
 
   # 2. VectorGuard AI Frontend Service (Static Site)
-  - type: static
+  - type: web
     name: vectorguard-frontend
+    env: static
     rootDir: WebApp/frontend
     buildCommand: ""
     staticPublishPath: .
