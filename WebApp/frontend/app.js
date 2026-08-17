@@ -289,7 +289,7 @@ function renderPieChart(pred) {
   chartInstance = new Chart(ctx, {
     type: 'pie',
     data: {
-      labels: ['Vector mosquitos', 'Non-vector'],
+      labels: ['Malaria Vector', 'Non-Vector'],
       datasets: [{
         data: [pred.anopheles || 0, pred.non_anopheles || 0],
         backgroundColor: ['#ff3b30', '#34c759']
